@@ -1,6 +1,7 @@
 package main
 
 import (
+	"add-service/service"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -8,7 +9,7 @@ import (
 	"github.com/go-kit/kit/endpoint"
 )
 
-func MakeSumEndpoint(s Service) endpoint.Endpoint {
+func MakeSumEndpoint(s service.Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(SumRequest)
 		v, err := s.Sum(ctx, req.A, req.B)
@@ -16,7 +17,7 @@ func MakeSumEndpoint(s Service) endpoint.Endpoint {
 	}
 }
 
-func MakeConcatEndpoint(s Service) endpoint.Endpoint {
+func MakeConcatEndpoint(s service.Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(ConcatRequest)
 		v, err := s.Concat(ctx, req.A, req.B)
