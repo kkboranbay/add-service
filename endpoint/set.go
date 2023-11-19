@@ -5,6 +5,8 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/endpoint"
+	"github.com/go-kit/kit/metrics"
+	"github.com/go-kit/log"
 )
 
 // Set collects all of the endpoints that compose an add service. It's meant to
@@ -15,15 +17,19 @@ type Set struct {
 	ConcatEndpoint endpoint.Endpoint
 }
 
-func New(svc service.Service) Set {
+func New(svc service.Service, logger log.Logger, duration metrics.Histogram) Set {
 	var sumEndpoint endpoint.Endpoint
 	{
 		sumEndpoint = MakeSumEndpoint(svc)
+		sumEndpoint = LoggingMiddleware(log.With(logger, "method", "Sum"))(sumEndpoint)
+		sumEndpoint = InstrumentingMiddleware(duration.With("method", "Sum"))(sumEndpoint)
 	}
 
 	var concatEndpoint endpoint.Endpoint
 	{
 		concatEndpoint = MakeConcatEndpoint(svc)
+		concatEndpoint = LoggingMiddleware(log.With(logger, "method", "Concat"))(concatEndpoint)
+		concatEndpoint = InstrumentingMiddleware(duration.With("method", "Concat"))(concatEndpoint)
 	}
 
 	return Set{

@@ -21,9 +21,7 @@ func main() {
 	{
 		logger = log.NewLogfmtLogger(os.Stderr)
 		logger = log.With(logger, "ts", log.DefaultTimestampUTC)
-		// ts=2023-11-19T06:19:04.945776Z method=Concat a=leo b=ken v=leoken err=null
 		logger = log.With(logger, "caller", log.DefaultCaller)
-		// ts=2023-11-19T06:20:31.612571Z caller=middleware.go:32 method=Concat a=leo b=ken v=leoken err=null
 	}
 
 	var ints, chars metrics.Counter
@@ -44,11 +42,22 @@ func main() {
 		}, []string{})
 	}
 
+	var duration metrics.Histogram
+	{
+		// Endpoint-level metrics.
+		duration = prometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
+			Namespace: "go_kit",
+			Subsystem: "add_service",
+			Name:      "request_duration_seconds",
+			Help:      "Request duration in seconds.",
+		}, []string{"method", "success"})
+	}
+
 	svc := service.NewBasicService()
 	svc = service.LoggingMiddleware(logger)(svc)
 	svc = service.InstrumentingMiddleware(ints, chars)(svc)
 
-	endpoints := endpoint.New(svc)
+	endpoints := endpoint.New(svc, logger, duration)
 
 	sumHandler := httptransport.NewServer(endpoints.SumEndpoint, decodeHTTPSumRequest, encodeHTTPGenericResponse)
 	concatHandler := httptransport.NewServer(endpoints.ConcatEndpoint, decodeHTTPConcatRequest, encodeHTTPGenericResponse)
