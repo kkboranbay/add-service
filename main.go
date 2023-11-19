@@ -1,7 +1,10 @@
 package main
 
 import (
+	"add-service/endpoint"
 	"add-service/service"
+	"context"
+	"encoding/json"
 	"net/http"
 	"os"
 
@@ -45,12 +48,31 @@ func main() {
 	svc = service.LoggingMiddleware(logger)(svc)
 	svc = service.InstrumentingMiddleware(ints, chars)(svc)
 
-	sumHandler := httptransport.NewServer(MakeSumEndpoint(svc), decodeHTTPSumRequest, encodeHTTPGenericResponse)
-	concatHandler := httptransport.NewServer(MakeConcatEndpoint(svc), decodeHTTPConcatRequest, encodeHTTPGenericResponse)
+	endpoints := endpoint.New(svc)
+
+	sumHandler := httptransport.NewServer(endpoints.SumEndpoint, decodeHTTPSumRequest, encodeHTTPGenericResponse)
+	concatHandler := httptransport.NewServer(endpoints.ConcatEndpoint, decodeHTTPConcatRequest, encodeHTTPGenericResponse)
 
 	http.Handle("/sum", sumHandler)
 	http.Handle("/concat", concatHandler)
 	// ../prometheus/prometheus --config.file=.config/prometheus.yml
 	http.Handle("/metrics", promhttp.Handler())
 	http.ListenAndServe(":8080", nil)
+}
+
+func decodeHTTPSumRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	var request endpoint.SumRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
+	return request, err
+}
+
+func decodeHTTPConcatRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	var request endpoint.ConcatRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
+	return request, err
+}
+
+func encodeHTTPGenericResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	return json.NewEncoder(w).Encode(response)
 }
