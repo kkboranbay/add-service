@@ -3,14 +3,12 @@ package main
 import (
 	"add-service/endpoint"
 	"add-service/service"
-	"context"
-	"encoding/json"
+	"add-service/transport"
 	"net/http"
 	"os"
 
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/prometheus"
-	httptransport "github.com/go-kit/kit/transport/http"
 	"github.com/go-kit/log"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -58,30 +56,9 @@ func main() {
 	svc = service.InstrumentingMiddleware(ints, chars)(svc)
 
 	endpoints := endpoint.New(svc, logger, duration)
+	handler := transport.NewHTTPHandler(endpoints)
 
-	sumHandler := httptransport.NewServer(endpoints.SumEndpoint, decodeHTTPSumRequest, encodeHTTPGenericResponse)
-	concatHandler := httptransport.NewServer(endpoints.ConcatEndpoint, decodeHTTPConcatRequest, encodeHTTPGenericResponse)
-
-	http.Handle("/sum", sumHandler)
-	http.Handle("/concat", concatHandler)
 	// ../prometheus/prometheus --config.file=.config/prometheus.yml
 	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(":8080", nil)
-}
-
-func decodeHTTPSumRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	var request endpoint.SumRequest
-	err := json.NewDecoder(r.Body).Decode(&request)
-	return request, err
-}
-
-func decodeHTTPConcatRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	var request endpoint.ConcatRequest
-	err := json.NewDecoder(r.Body).Decode(&request)
-	return request, err
-}
-
-func encodeHTTPGenericResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	return json.NewEncoder(w).Encode(response)
+	http.ListenAndServe(":8080", handler)
 }
